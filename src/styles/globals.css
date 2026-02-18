@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Neutrals */
+  --ivy-white: #FAFAFC;
+  --ivy-extra-light-gray: #EBEBF0;
+  --ivy-light-gray: #CBCBD6;
+  --ivy-gray: #74747A;
+  --ivy-dark-gray: #303033;
+  --ivy-extra-dark-gray: #1C1C1F;
+  --ivy-black: #09090A;
+  --ivy-true-black: #000000;
+
+  /* Purple (Primary) */
+  --ivy-purple-extra-light: #B8ABF5;
+  --ivy-purple-light: #9987F5;
+  --ivy-purple-kinda-light: #7B62F5;
+  --ivy-purple: #5C3DF5;
+  --ivy-purple-kinda-dark: #4D33CC;
+  --ivy-purple-dark: #36248F;
+  --ivy-purple-extra-dark: #1F1452;
+
+  /* Green (Secondary / Success) */
+  --ivy-green-extra-light: #ABF5DC;
+  --ivy-green-light: #5AE0B4;
+  --ivy-green-kinda-light: #38E0A8;
+  --ivy-green: #12B880;
+  --ivy-green-kinda-dark: #10A372;
+  --ivy-green-dark: #0C7A56;
+  --ivy-green-extra-dark: #085239;
+
+  /* Red (Error / Expense) */
+  --ivy-red-extra-light: #F5ABAB;
+  --ivy-red-light: #F5AB87;
+  --ivy-red-kinda-light: #F56262;
+  --ivy-red: #F53D3D;
+  --ivy-red-kinda-dark: #CC3333;
+  --ivy-red-dark: #8F2424;
+  --ivy-red-extra-dark: #521414;
+
+  /* Orange */
+  --ivy-orange-extra-light: #F5C4AB;
+  --ivy-orange-light: #F5AB87;
+  --ivy-orange-kinda-light: #F59362;
+  --ivy-orange: #F57A3D;
+  --ivy-orange-kinda-dark: #CC6633;
+  --ivy-orange-dark: #8F4724;
+  --ivy-orange-extra-dark: #522914;
+
+  /* Yellow */
+  --ivy-yellow-extra-light: #F5E9AB;
+  --ivy-yellow-light: #F5E287;
+  --ivy-yellow-kinda-light: #F5DC62;
+  --ivy-yellow: #F5D018;
+  --ivy-yellow-kinda-dark: #CCAD14;
+  --ivy-yellow-dark: #A38B10;
+  --ivy-yellow-extra-dark: #7A680C;
+
+  /* Blue */
+  --ivy-blue-extra-light: #ABD0F5;
+  --ivy-blue-light: #87BEF5;
+  --ivy-blue-kinda-light: #62ABF5;
+  --ivy-blue: #3193F5;
+  --ivy-blue-kinda-dark: #3380CC;
+  --ivy-blue-dark: #24598F;
+  --ivy-blue-extra-dark: #153352;
+
+  /* Pink */
+  --ivy-pink-extra-light: #F5ABD0;
+  --ivy-pink-light: #F587BE;
+  --ivy-pink-kinda-light: #F562AB;
+  --ivy-pink: #F53D99;
+  --ivy-pink-kinda-dark: #CC3380;
+  --ivy-pink-dark: #8F2459;
+  --ivy-pink-extra-dark: #521433;
+}
+
+/* Light theme (default) */
+[data-theme="light"],
+:root {
+  --primary: var(--ivy-purple);
+  --on-primary: var(--ivy-white);
+  --secondary: var(--ivy-green);
+  --on-secondary: var(--ivy-white);
+  --error: var(--ivy-red);
+  --background: var(--ivy-white);
+  --on-background: var(--ivy-black);
+  --surface: var(--ivy-white);
+  --on-surface: var(--ivy-black);
+  --surface-variant: var(--ivy-extra-light-gray);
+  --outline: var(--ivy-gray);
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --primary: var(--ivy-purple);
+  --on-primary: var(--ivy-white);
+  --secondary: var(--ivy-green);
+  --on-secondary: var(--ivy-white);
+  --error: var(--ivy-red);
+  --background: var(--ivy-black);
+  --on-background: var(--ivy-white);
+  --surface: var(--ivy-black);
+  --on-surface: var(--ivy-white);
+  --surface-variant: var(--ivy-extra-dark-gray);
+  --outline: var(--ivy-gray);
+}
+
+/* Loading bar animation */
+@keyframes loading-bar {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.4s ease-in-out infinite;
+}
+
+/* Themed opacity utilities using color-mix() */
+.bg-primary-subtle {
+  background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.bg-error-subtle {
+  background-color: color-mix(in srgb, var(--error) 5%, transparent);
+}
+.border-error-subtle {
+  border-color: color-mix(in srgb, var(--error) 30%, transparent);
+}
+
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--background);
+  color: var(--on-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
