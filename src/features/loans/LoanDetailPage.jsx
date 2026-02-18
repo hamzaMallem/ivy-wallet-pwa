@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchLoans, removeLoan } from '@/store/slices/loansSlice';
@@ -15,6 +15,8 @@ export function LoanDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const loan = useAppSelector((state) =>
     state.loans.items.find((l) => l.id === id)
@@ -45,7 +47,7 @@ export function LoanDetailPage() {
 
   if (!loan) {
     return (
-      <div className="mx-auto max-w-lg px-4 pt-6">
+      <div className="mx-auto max-w-lg px-4 pt-6 md:max-w-2xl lg:max-w-4xl">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -62,14 +64,12 @@ export function LoanDetailPage() {
   const colorHex = `#${(loan.color || 0x5c3df5).toString(16).padStart(6, '0')}`;
 
   const handleDelete = () => {
-    if (window.confirm(`Delete loan "${loan.name}"?`)) {
-      dispatch(removeLoan(id));
-      navigate('/loans');
-    }
+    dispatch(removeLoan(id));
+    navigate('/loans');
   };
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-4 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-4 pb-8 md:max-w-2xl lg:max-w-4xl">
       <div className="mb-4 flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -82,9 +82,17 @@ export function LoanDetailPage() {
         >
           <Edit className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={handleDelete}>
-          <Trash2 className="h-4 w-4 text-error" />
-        </Button>
+        {confirmDelete ? (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-error">Delete?</span>
+            <Button variant="destructive" size="sm" className="h-7 px-2 text-xs" onClick={handleDelete}>Yes</Button>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setConfirmDelete(false)}>No</Button>
+          </div>
+        ) : (
+          <Button variant="ghost" size="icon" onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="h-4 w-4 text-error" />
+          </Button>
+        )}
       </div>
 
       {/* Summary */}

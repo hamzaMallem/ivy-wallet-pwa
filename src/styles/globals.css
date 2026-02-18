@@ -100,9 +100,9 @@
   --secondary: var(--ivy-green);
   --on-secondary: var(--ivy-white);
   --error: var(--ivy-red);
-  --background: var(--ivy-black);
+  --background: #0F0F0F;
   --on-background: var(--ivy-white);
-  --surface: var(--ivy-black);
+  --surface: #0F0F0F;
   --on-surface: var(--ivy-white);
   --surface-variant: var(--ivy-extra-dark-gray);
   --outline: var(--ivy-gray);

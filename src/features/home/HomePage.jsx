@@ -206,7 +206,7 @@ export function HomePage() {
   );
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-6 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-6 pb-8 md:max-w-2xl lg:max-w-4xl">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-outline">
@@ -217,151 +217,164 @@ export function HomePage() {
         </Button>
       </div>
 
-      {/* Balance Card */}
-      <Card className="mb-4 bg-primary text-on-primary">
-        <CardContent className="pt-4">
-          <p className="text-sm opacity-80">Total Balance</p>
-          <p className="text-3xl font-bold">
-            {settings.hideCurrentBalance
-              ? '****'
-              : `${totalBalance.toFixed(2)} ${settings.baseCurrency}`}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+        {/* Left column: balance + stats + upcoming */}
+        <div>
+          {/* Balance Card */}
+          <Card className="mb-4 bg-primary text-on-primary">
+            <CardContent className="pt-4">
+              <p className="text-sm opacity-80">Total Balance</p>
+              <p className="text-3xl font-bold">
+                {settings.hideCurrentBalance
+                  ? '****'
+                  : `${totalBalance.toFixed(2)} ${settings.baseCurrency}`}
+              </p>
+            </CardContent>
+          </Card>
 
-      {/* Period Selector */}
-      <div className="mb-4 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => dispatch(previousMonth())}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        <span className="text-sm font-medium">{periodLabel}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => dispatch(nextMonth())}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Button>
-      </div>
-
-      {/* Income / Expense / Cashflow Summary */}
-      <div className="mb-6 grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="pt-3">
-            <p className="text-xs text-outline">Income</p>
-            <AmountDisplay
-              amount={settings.hideIncome ? 0 : income}
-              currency={settings.baseCurrency}
-              type="INCOME"
-              className="text-lg"
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3">
-            <p className="text-xs text-outline">Expenses</p>
-            <AmountDisplay
-              amount={expense}
-              currency={settings.baseCurrency}
-              type="EXPENSE"
-              className="text-lg"
-            />
-          </CardContent>
-        </Card>
-        <Card className="col-span-2">
-          <CardContent className="flex items-center justify-between pt-3">
-            <p className="text-xs text-outline">Cashflow</p>
-            <AmountDisplay
-              amount={settings.hideIncome ? 0 : income - expense}
-              currency={settings.baseCurrency}
-              type={income - expense >= 0 ? 'INCOME' : 'EXPENSE'}
-              className="text-base font-semibold"
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Overdue Planned Payments */}
-      {overdue.length > 0 && (
-        <div className="mb-5">
-          <h2 className="mb-2 text-sm font-medium text-error">
-            Overdue ({overdue.length})
-          </h2>
-          <div className="space-y-2">
-            {overdue.map(({ payment, dueDate }) => (
-              <UpcomingPaymentCard
-                key={payment.id}
-                payment={payment}
-                dueDate={dueDate}
-                isOverdue
-                account={accounts.find((a) => a.id === payment.accountId)}
-                category={categories.find((c) => c.id === payment.categoryId)}
-                settings={settings}
-                onPay={handlePay}
-                onSkip={handleSkip}
-              />
-            ))}
+          {/* Period Selector */}
+          <div className="mb-4 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => dispatch(previousMonth())}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm font-medium">{periodLabel}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => dispatch(nextMonth())}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
           </div>
-        </div>
-      )}
 
-      {/* Upcoming Planned Payments */}
-      {upcoming.length > 0 && (
-        <div className="mb-5">
-          <h2 className="mb-2 text-sm font-medium text-outline">
-            Upcoming ({upcoming.length})
-          </h2>
-          <div className="space-y-2">
-            {upcoming.map(({ payment, dueDate }) => (
-              <UpcomingPaymentCard
-                key={payment.id}
-                payment={payment}
-                dueDate={dueDate}
-                isOverdue={false}
-                account={accounts.find((a) => a.id === payment.accountId)}
-                category={categories.find((c) => c.id === payment.categoryId)}
-                settings={settings}
-                onPay={handlePay}
-                onSkip={handleSkip}
-              />
-            ))}
+          {/* Income / Expense / Cashflow Summary */}
+          <div className="mb-6 grid grid-cols-2 gap-3">
+            <Card>
+              <CardContent className="pt-3">
+                <p className="text-xs text-outline">Income</p>
+                <AmountDisplay
+                  amount={settings.hideIncome ? 0 : income}
+                  currency={settings.baseCurrency}
+                  type="INCOME"
+                  className="text-lg"
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-3">
+                <p className="text-xs text-outline">Expenses</p>
+                <AmountDisplay
+                  amount={expense}
+                  currency={settings.baseCurrency}
+                  type="EXPENSE"
+                  className="text-lg"
+                />
+              </CardContent>
+            </Card>
+            <Card className="col-span-2">
+              <CardContent className="flex items-center justify-between pt-3">
+                <p className="text-xs text-outline">Cashflow</p>
+                <AmountDisplay
+                  amount={settings.hideIncome ? 0 : income - expense}
+                  currency={settings.baseCurrency}
+                  type={income - expense >= 0 ? 'INCOME' : 'EXPENSE'}
+                  className="text-sm font-bold"
+                />
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      )}
 
-      {/* Transaction List grouped by date */}
-      <div>
-        <h2 className="mb-2 text-sm font-medium text-outline">Transactions</h2>
-        {grouped.length === 0 ? (
-          <EmptyState
-            icon={Inbox}
-            title="No transactions"
-            description="Tap the + button to add your first transaction"
-          />
-        ) : (
-          <div className="space-y-4">
-            {grouped.map((group) => (
-              <div key={group.date}>
-                <p className="mb-1 text-xs font-medium text-outline">
-                  {formatDateLabel(group.date)}
-                </p>
-                <div className="space-y-1">
-                  {group.transactions.map((tx) => (
-                    <TransactionItem
-                      key={tx.id}
-                      transaction={tx}
-                      onClick={() => navigate(`/transactions/${tx.id}`)}
-                    />
-                  ))}
-                </div>
+          {/* Overdue Planned Payments */}
+          {overdue.length > 0 && (
+            <div className="mb-5">
+              <h2 className="mb-2 text-sm font-medium text-error">
+                Overdue ({overdue.length})
+              </h2>
+              <div className="space-y-2">
+                {overdue.map(({ payment, dueDate }) => (
+                  <UpcomingPaymentCard
+                    key={payment.id}
+                    payment={payment}
+                    dueDate={dueDate}
+                    isOverdue
+                    account={accounts.find((a) => a.id === payment.accountId)}
+                    category={categories.find((c) => c.id === payment.categoryId)}
+                    settings={settings}
+                    onPay={handlePay}
+                    onSkip={handleSkip}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+
+          {/* Upcoming Planned Payments */}
+          {upcoming.length > 0 && (
+            <div className="mb-5">
+              <h2 className="mb-2 text-sm font-medium text-outline">
+                Upcoming ({upcoming.length})
+              </h2>
+              <div className="space-y-2">
+                {upcoming.map(({ payment, dueDate }) => (
+                  <UpcomingPaymentCard
+                    key={payment.id}
+                    payment={payment}
+                    dueDate={dueDate}
+                    isOverdue={false}
+                    account={accounts.find((a) => a.id === payment.accountId)}
+                    category={categories.find((c) => c.id === payment.categoryId)}
+                    settings={settings}
+                    onPay={handlePay}
+                    onSkip={handleSkip}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right column: transaction list */}
+        <div>
+          <h2 className="mb-2 text-sm font-medium text-outline">Transactions</h2>
+          {grouped.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              iconClassName="mb-4 h-20 w-20 text-primary"
+              title="No transactions"
+              description="Add your first transaction to get started"
+            >
+              <Button
+                className="mt-2"
+                onClick={() => navigate('/transactions/new')}
+              >
+                + Add First Transaction
+              </Button>
+            </EmptyState>
+          ) : (
+            <div className="space-y-4">
+              {grouped.map((group) => (
+                <div key={group.date}>
+                  <p className="mb-1 text-xs font-medium text-outline">
+                    {formatDateLabel(group.date)}
+                  </p>
+                  <div className="space-y-1">
+                    {group.transactions.map((tx) => (
+                      <TransactionItem
+                        key={tx.id}
+                        transaction={tx}
+                        onClick={() => navigate(`/transactions/${tx.id}`)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Recurring Transaction Notification */}

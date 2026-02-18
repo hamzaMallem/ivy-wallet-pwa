@@ -26,7 +26,7 @@ export function BudgetsPage() {
   const totalRemaining = budgets.reduce((sum, b) => sum + b.remaining, 0);
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-6 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-6 pb-8 md:max-w-2xl lg:max-w-4xl">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Budgets</h1>
         <Button

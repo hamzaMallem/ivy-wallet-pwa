@@ -72,7 +72,7 @@ export function PlannedPaymentsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-4 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-4 pb-8 md:max-w-2xl lg:max-w-4xl">
       <div className="mb-4 flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />

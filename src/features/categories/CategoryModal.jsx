@@ -21,6 +21,7 @@ export function CategoryModal({ open, category }) {
     name: '',
     color: 0xf57a3d,
     icon: 'food',
+    type: 'ANY',
   });
 
   // Reset form when modal opens/closes or category changes
@@ -31,9 +32,10 @@ export function CategoryModal({ open, category }) {
         name: category.name || '',
         color: category.color || 0xf57a3d,
         icon: category.icon || 'food',
+        type: category.type || 'ANY',
       });
     } else {
-      setForm({ name: '', color: 0xf57a3d, icon: 'food' });
+      setForm({ name: '', color: 0xf57a3d, icon: 'food', type: 'ANY' });
     }
   }, [category]);
 
@@ -83,6 +85,24 @@ export function CategoryModal({ open, category }) {
               onChange={(icon) => setForm((f) => ({ ...f, icon }))}
               color={form.color}
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-outline">Type</label>
+            <div className="flex gap-2">
+              {['ANY', 'INCOME', 'EXPENSE'].map((t) => (
+                <Button
+                  key={t}
+                  type="button"
+                  variant={form.type === t ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setForm((f) => ({ ...f, type: t }))}
+                >
+                  {t === 'ANY' ? 'Any' : t === 'INCOME' ? 'Income' : 'Expense'}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <Button className="w-full" onClick={handleSave}>

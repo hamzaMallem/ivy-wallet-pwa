@@ -22,6 +22,7 @@ import { LoansPage } from '@/features/loans/LoansPage';
 import { LoanDetailPage } from '@/features/loans/LoanDetailPage';
 import { ExchangeRatesPage } from '@/features/exchange-rates/ExchangeRatesPage';
 import { CsvImportPage } from '@/features/import-export/CsvImportPage';
+import { TagsPage } from '@/features/tags/TagsPage';
 
 function AppRoutes() {
   const dispatch = useAppDispatch();
@@ -87,6 +88,7 @@ function AppRoutes() {
         <Route path="/loans/:id" element={<LoanDetailPage />} />
         <Route path="/exchange-rates" element={<ExchangeRatesPage />} />
         <Route path="/import" element={<CsvImportPage />} />
+        <Route path="/tags" element={<TagsPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

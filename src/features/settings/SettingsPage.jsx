@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSettings, updateSettings } from '@/store/slices/settingsSlice';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import {
   Moon, Sun, Download, Upload, Trash2, Database,
   Target, CalendarClock, Landmark, DollarSign, FileSpreadsheet,
+  Shield, RotateCcw, Tag,
 } from 'lucide-react';
 import { seedDatabase, clearDatabase } from '@/db/seed';
 import { db } from '@/db/database';
@@ -18,6 +19,10 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const settings = useAppSelector((state) => state.settings.data);
   const [exportStatus, setExportStatus] = useState('');
+  const [backupStatus, setBackupStatus] = useState('');
+  const [restoreStatus, setRestoreStatus] = useState('');
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  const jsonFileInputRef = useRef(null);
 
   useEffect(() => {
     dispatch(fetchSettings());
@@ -68,16 +73,61 @@ export function SettingsPage() {
     }
   };
 
-  const handleDeleteAllData = async () => {
-    if (
-      window.confirm(
-        'Delete ALL data? This will remove all accounts, categories, transactions, and settings. This cannot be undone.'
-      )
-    ) {
-      await clearDatabase();
-      dispatch(fetchSettings());
-      navigate('/onboarding');
+  const handleExportJson = async () => {
+    try {
+      setBackupStatus('Backing up...');
+      const data = {};
+      for (const table of db.tables) {
+        data[table.name] = await table.toArray();
+      }
+      data.__version = 2;
+      data.__exportedAt = new Date().toISOString();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ivy-wallet-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBackupStatus('Backed up!');
+      setTimeout(() => setBackupStatus(''), 2000);
+    } catch {
+      setBackupStatus('Backup failed');
     }
+  };
+
+  const handleImportJson = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      setRestoreStatus('Restoring...');
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (data.__version !== 2) {
+        setRestoreStatus('Incompatible backup version');
+        return;
+      }
+      await db.transaction('rw', db.tables, async () => {
+        for (const table of db.tables) {
+          if (Array.isArray(data[table.name])) {
+            await table.clear();
+            await table.bulkAdd(data[table.name]);
+          }
+        }
+      });
+      setRestoreStatus('Restored! Reloading...');
+      setTimeout(() => window.location.reload(), 800);
+    } catch {
+      setRestoreStatus('Restore failed — invalid file');
+      setTimeout(() => setRestoreStatus(''), 3000);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    await clearDatabase();
+    dispatch(fetchSettings());
+    navigate('/onboarding');
   };
 
   const handleSeedData = async () => {
@@ -88,7 +138,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-6 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-6 pb-8 md:max-w-2xl lg:max-w-4xl">
       <h1 className="mb-4 text-xl font-bold">Settings</h1>
 
       <div className="space-y-4">
@@ -260,6 +310,13 @@ export function SettingsPage() {
             >
               <FileSpreadsheet className="mr-2 h-4 w-4" /> Categories
             </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => navigate('/tags')}
+            >
+              <Tag className="mr-2 h-4 w-4" /> Tags
+            </Button>
           </CardContent>
         </Card>
 
@@ -288,19 +345,58 @@ export function SettingsPage() {
             <Button
               variant="outline"
               className="w-full"
+              onClick={handleExportJson}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              {backupStatus || 'Backup to JSON'}
+            </Button>
+            <input
+              ref={jsonFileInputRef}
+              type="file"
+              accept=".json"
+              className="sr-only"
+              onChange={handleImportJson}
+            />
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => jsonFileInputRef.current?.click()}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {restoreStatus || 'Restore from JSON'}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
               onClick={handleSeedData}
             >
               <Database className="mr-2 h-4 w-4" />
               Load Sample Data
             </Button>
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={handleDeleteAllData}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete All Data
-            </Button>
+            {confirmWipe ? (
+              <div className="rounded-xl border border-error-subtle bg-error-subtle p-3">
+                <p className="mb-2 text-sm text-error">
+                  This removes all accounts, categories, transactions, and settings. Cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="destructive" className="flex-1" onClick={handleDeleteAllData}>
+                    Yes, delete everything
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setConfirmWipe(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => setConfirmWipe(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete All Data
+              </Button>
+            )}
           </CardContent>
         </Card>
 

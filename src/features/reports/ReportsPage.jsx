@@ -13,6 +13,7 @@ import { fetchCategories } from '@/store/slices/categoriesSlice';
 import { fetchTags } from '@/store/slices/tagsSlice';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AmountDisplay } from '@/components/AmountDisplay';
 import { EmptyState } from '@/components/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -22,9 +23,14 @@ import {
   PieChart as PieChartIcon,
   SlidersHorizontal,
   X,
+  CalendarRange,
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { format } from 'date-fns';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  BarChart, Bar, XAxis, YAxis, Legend,
+  AreaChart, Area,
+} from 'recharts';
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 
 const CHART_COLORS = [
   '#5C3DF5', '#12B880', '#F53D3D', '#3193F5', '#F57A3D',
@@ -104,7 +110,10 @@ export function ReportsPage() {
     dispatch(fetchTags());
   }, [dispatch]);
 
-  // Base selectors (unfiltered)
+  // All transactions (needed for custom range + trend)
+  const allTransactions = useAppSelector((state) => state.transactions.items);
+
+  // Base selectors (unfiltered, period-scoped)
   const periodTransactions = useAppSelector(selectPeriodTransactions);
   const baseIncome = useAppSelector(selectPeriodIncome);
   const baseExpense = useAppSelector(selectPeriodExpense);
@@ -117,6 +126,11 @@ export function ReportsPage() {
   const settings = useAppSelector((state) => state.settings.data);
   const timePeriod = useAppSelector((state) => state.ui.timePeriod);
 
+  // Date mode
+  const [dateMode, setDateMode] = useState('period'); // 'period' | 'custom'
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
   const [selectedAccounts, setSelectedAccounts] = useState([]);
@@ -128,7 +142,7 @@ export function ReportsPage() {
 
   const activeFilterCount =
     selectedAccounts.length + selectedCategories.length + selectedTags.length;
-  const isFiltered = activeFilterCount > 0;
+  const isFiltered = activeFilterCount > 0 || dateMode === 'custom';
 
   const clearAllFilters = () => {
     setSelectedAccounts([]);
@@ -141,9 +155,22 @@ export function ReportsPage() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
+  // ── Custom date range base transactions ───────────────────────────────────
+  const customRangeTransactions = useMemo(() => {
+    if (dateMode !== 'custom' || !customFrom || !customTo) return [];
+    const from = new Date(customFrom);
+    const to = new Date(customTo);
+    to.setHours(23, 59, 59, 999);
+    return allTransactions.filter((t) => {
+      if (!t.dateTime) return false;
+      const d = new Date(t.dateTime);
+      return d >= from && d <= to;
+    });
+  }, [dateMode, customFrom, customTo, allTransactions]);
+
   // ── Filtered transactions (chained) ───────────────────────────────────────
   const filteredTransactions = useMemo(() => {
-    let txs = periodTransactions;
+    let txs = dateMode === 'custom' ? customRangeTransactions : periodTransactions;
 
     if (selectedAccounts.length > 0) {
       txs = txs.filter(
@@ -236,6 +263,59 @@ export function ReportsPage() {
     [incomeByCategory, categories]
   );
 
+  // ── Monthly trend (last 6 months) ─────────────────────────────────────────
+  const trendData = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const monthDate = subMonths(now, 5 - i);
+      const start = startOfMonth(monthDate);
+      const end = endOfMonth(monthDate);
+      const monthTxs = allTransactions.filter((t) => {
+        if (!t.dateTime) return false;
+        const d = new Date(t.dateTime);
+        return d >= start && d <= end;
+      });
+      const inc = monthTxs
+        .filter((t) => t.type === 'INCOME')
+        .reduce((s, t) => s + t.amount, 0);
+      const exp = monthTxs
+        .filter((t) => t.type === 'EXPENSE')
+        .reduce((s, t) => s + t.amount, 0);
+      return {
+        month: format(monthDate, 'MMM yy'),
+        Income: parseFloat(inc.toFixed(2)),
+        Expenses: parseFloat(exp.toFixed(2)),
+      };
+    });
+  }, [allTransactions]);
+
+  // ── Total balance per month (last 12 months) ──────────────────────────────
+  const balanceOverTime = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, i) => {
+      const monthDate = subMonths(now, 11 - i);
+      const end = endOfMonth(monthDate);
+      // Sum all transactions up to end of this month
+      const txsUpTo = allTransactions.filter((t) => {
+        if (!t.dateTime) return false;
+        return new Date(t.dateTime) <= end;
+      });
+      let balance = 0;
+      txsUpTo.forEach((t) => {
+        if (t.type === 'INCOME') balance += t.amount;
+        else if (t.type === 'EXPENSE') balance -= t.amount;
+        else if (t.type === 'TRANSFER') {
+          balance -= t.amount;
+          balance += t.toAmount ?? t.amount;
+        }
+      });
+      return {
+        month: format(monthDate, 'MMM yy'),
+        Balance: parseFloat(balance.toFixed(2)),
+      };
+    });
+  }, [allTransactions]);
+
   const hasData = income > 0 || expense > 0;
 
   const emptyDescription = isFiltered
@@ -243,7 +323,7 @@ export function ReportsPage() {
     : 'Add transactions to see your reports';
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-6 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-6 pb-8 md:max-w-2xl lg:max-w-4xl">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Reports</h1>
@@ -265,15 +345,44 @@ export function ReportsPage() {
         </button>
       </div>
 
-      {/* Period Selector */}
-      <div className="mb-4 flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={() => dispatch(previousMonth())}>
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        <span className="text-sm font-medium">{periodLabel}</span>
-        <Button variant="ghost" size="icon" onClick={() => dispatch(nextMonth())}>
-          <ChevronRight className="h-5 w-5" />
-        </Button>
+      {/* Period / Custom toggle */}
+      <div className="mb-4">
+        {dateMode === 'period' ? (
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => dispatch(previousMonth())}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm font-medium">{periodLabel}</span>
+            <Button variant="ghost" size="icon" onClick={() => dispatch(nextMonth())}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="flex-1 text-sm"
+            />
+            <span className="text-sm text-outline">→</span>
+            <Input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="flex-1 text-sm"
+            />
+          </div>
+        )}
+        <button
+          onClick={() => setDateMode((m) => (m === 'period' ? 'custom' : 'period'))}
+          className={`mt-2 flex items-center gap-1 text-xs transition-colors ${
+            dateMode === 'custom' ? 'text-primary' : 'text-outline hover:text-on-surface'
+          }`}
+        >
+          <CalendarRange className="h-3.5 w-3.5" />
+          {dateMode === 'custom' ? 'Back to monthly view' : 'Custom date range'}
+        </button>
       </div>
 
       {/* Filter Panel */}
@@ -384,152 +493,221 @@ export function ReportsPage() {
       )}
 
       {/* Content */}
-      {!hasData ? (
-        <EmptyState
-          icon={PieChartIcon}
-          title={isFiltered ? 'No matching data' : 'No data yet'}
-          description={emptyDescription}
-        />
-      ) : (
-        <>
-          {/* Summary */}
-          <div className="mb-4 grid grid-cols-2 gap-3">
-            <Card>
-              <CardContent className="pt-3">
-                <p className="text-xs text-outline">Income</p>
-                <AmountDisplay
-                  amount={income}
-                  currency={settings.baseCurrency}
-                  type="INCOME"
-                  className="text-lg"
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-3">
-                <p className="text-xs text-outline">Expenses</p>
-                <AmountDisplay
-                  amount={expense}
-                  currency={settings.baseCurrency}
-                  type="EXPENSE"
-                  className="text-lg"
-                />
-              </CardContent>
-            </Card>
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+        {/* Left column: summary stats (period-scoped) */}
+        <div>
+          {!hasData ? (
+            <EmptyState
+              icon={PieChartIcon}
+              title={isFiltered ? 'No matching data' : 'No data yet'}
+              description={emptyDescription}
+            />
+          ) : (
+            <>
+              {/* Summary */}
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <Card>
+                  <CardContent className="pt-3">
+                    <p className="text-xs text-outline">Income</p>
+                    <AmountDisplay
+                      amount={income}
+                      currency={settings.baseCurrency}
+                      type="INCOME"
+                      className="text-lg"
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-3">
+                    <p className="text-xs text-outline">Expenses</p>
+                    <AmountDisplay
+                      amount={expense}
+                      currency={settings.baseCurrency}
+                      type="EXPENSE"
+                      className="text-lg"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Net */}
+              <Card className="mb-6">
+                <CardContent className="flex items-center justify-between pt-3">
+                  <p className="text-xs text-outline">Net</p>
+                  <AmountDisplay
+                    amount={income - expense}
+                    currency={settings.baseCurrency}
+                    type={income - expense >= 0 ? 'INCOME' : 'EXPENSE'}
+                    className="text-xl font-bold"
+                  />
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+
+        {/* Right column: charts + breakdown (Trend & Balance always visible) */}
+        <div>
+            <Tabs defaultValue="expenses">
+              <TabsList className="w-full">
+                <TabsTrigger value="expenses" className="flex-1">Expenses</TabsTrigger>
+                <TabsTrigger value="income" className="flex-1">Income</TabsTrigger>
+                <TabsTrigger value="trend" className="flex-1">Trend</TabsTrigger>
+                <TabsTrigger value="balance" className="flex-1">Balance</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="expenses">
+                {expenseData.length > 0 && (
+                  <Card className="mb-4">
+                    <CardContent className="pt-4">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={expenseData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={90}
+                            dataKey="amount"
+                            nameKey="name"
+                            paddingAngle={2}
+                          >
+                            {expenseData.map((entry) => (
+                              <Cell key={entry.id} fill={entry.chartColor} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value.toFixed(2)} ${settings.baseCurrency}`,
+                              'Amount',
+                            ]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Expenses by Category</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CategoryBreakdown
+                      data={expenseData}
+                      total={expense}
+                      currency={settings.baseCurrency}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="income">
+                {incomeData.length > 0 && (
+                  <Card className="mb-4">
+                    <CardContent className="pt-4">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={incomeData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={90}
+                            dataKey="amount"
+                            nameKey="name"
+                            paddingAngle={2}
+                          >
+                            {incomeData.map((entry) => (
+                              <Cell key={entry.id} fill={entry.chartColor} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value.toFixed(2)} ${settings.baseCurrency}`,
+                              'Amount',
+                            ]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Income by Category</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CategoryBreakdown
+                      data={incomeData}
+                      total={income}
+                      currency={settings.baseCurrency}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="trend">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Last 6 Months</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={trendData} barCategoryGap="30%">
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} width={50} />
+                        <Tooltip
+                          formatter={(value) => [
+                            `${value.toFixed(2)} ${settings.baseCurrency}`,
+                          ]}
+                        />
+                        <Legend />
+                        <Bar dataKey="Income" fill="#12B880" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Expenses" fill="#F53D3D" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="balance">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Total Balance — Last 12 Months</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <AreaChart data={balanceOverTime} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="balanceTotalGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#5C3DF5" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#5C3DF5" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fontSize: 11 }} width={55} />
+                        <Tooltip
+                          formatter={(value) => [
+                            `${value.toFixed(2)} ${settings.baseCurrency}`,
+                            'Balance',
+                          ]}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="Balance"
+                          stroke="#5C3DF5"
+                          strokeWidth={2}
+                          fill="url(#balanceTotalGrad)"
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
-
-          {/* Net */}
-          <Card className="mb-6">
-            <CardContent className="flex items-center justify-between pt-3">
-              <p className="text-xs text-outline">Net</p>
-              <AmountDisplay
-                amount={income - expense}
-                currency={settings.baseCurrency}
-                type={income - expense >= 0 ? 'INCOME' : 'EXPENSE'}
-                className="text-xl font-bold"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Tabs */}
-          <Tabs defaultValue="expenses">
-            <TabsList className="w-full">
-              <TabsTrigger value="expenses" className="flex-1">Expenses</TabsTrigger>
-              <TabsTrigger value="income" className="flex-1">Income</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="expenses">
-              {expenseData.length > 0 && (
-                <Card className="mb-4">
-                  <CardContent className="pt-4">
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie
-                          data={expenseData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={90}
-                          dataKey="amount"
-                          nameKey="name"
-                          paddingAngle={2}
-                        >
-                          {expenseData.map((entry) => (
-                            <Cell key={entry.id} fill={entry.chartColor} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value) => [
-                            `${value.toFixed(2)} ${settings.baseCurrency}`,
-                            'Amount',
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Expenses by Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CategoryBreakdown
-                    data={expenseData}
-                    total={expense}
-                    currency={settings.baseCurrency}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="income">
-              {incomeData.length > 0 && (
-                <Card className="mb-4">
-                  <CardContent className="pt-4">
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie
-                          data={incomeData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={90}
-                          dataKey="amount"
-                          nameKey="name"
-                          paddingAngle={2}
-                        >
-                          {incomeData.map((entry) => (
-                            <Cell key={entry.id} fill={entry.chartColor} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value) => [
-                            `${value.toFixed(2)} ${settings.baseCurrency}`,
-                            'Amount',
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Income by Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CategoryBreakdown
-                    data={incomeData}
-                    total={income}
-                    currency={settings.baseCurrency}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
+        </div>
     </div>
   );
 }

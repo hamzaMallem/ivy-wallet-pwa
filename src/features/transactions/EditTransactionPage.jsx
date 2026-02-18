@@ -11,7 +11,7 @@ import { createTag } from '@/db/repositories/tagRepository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Trash2, X, Copy } from 'lucide-react';
 
 const TYPES = ['INCOME', 'EXPENSE', 'TRANSFER'];
 
@@ -32,6 +32,7 @@ export function EditTransactionPage() {
     type: 'EXPENSE',
     title: '',
     amount: '',
+    toAmount: '',
     accountId: '',
     toAccountId: '',
     categoryId: '',
@@ -52,6 +53,7 @@ export function EditTransactionPage() {
         type: existingTx.type,
         title: existingTx.title || '',
         amount: String(existingTx.amount),
+        toAmount: existingTx.toAmount ? String(existingTx.toAmount) : '',
         accountId: existingTx.accountId || '',
         toAccountId: existingTx.toAccountId || '',
         categoryId: existingTx.categoryId || '',
@@ -100,10 +102,20 @@ export function EditTransactionPage() {
     if (isNaN(amount) || amount <= 0) return;
     if (!form.accountId) return;
 
+    const fromAccount = accounts.find((a) => a.id === form.accountId);
+    const toAccount = accounts.find((a) => a.id === form.toAccountId);
+    const crossCurrency =
+      form.type === 'TRANSFER' &&
+      fromAccount &&
+      toAccount &&
+      fromAccount.currency !== toAccount.currency;
+    const toAmountParsed = crossCurrency ? parseFloat(form.toAmount) : undefined;
+
     const data = {
       type: form.type,
       title: form.title || undefined,
       amount,
+      toAmount: crossCurrency && !isNaN(toAmountParsed) && toAmountParsed > 0 ? toAmountParsed : undefined,
       accountId: form.accountId,
       toAccountId: form.type === 'TRANSFER' ? form.toAccountId : undefined,
       categoryId: form.categoryId || undefined,
@@ -127,13 +139,36 @@ export function EditTransactionPage() {
     }
   };
 
+  const handleDuplicate = async () => {
+    const amount = parseFloat(form.amount);
+    if (isNaN(amount) || amount <= 0) return;
+    const data = {
+      type: form.type,
+      title: form.title || undefined,
+      amount,
+      accountId: form.accountId,
+      toAccountId: form.type === 'TRANSFER' ? form.toAccountId : undefined,
+      categoryId: form.categoryId || undefined,
+      description: form.description || undefined,
+      dateTime: new Date().toISOString(),
+      tags: form.tags,
+    };
+    await dispatch(addTransaction(data));
+    navigate(-1);
+  };
+
+  const filteredCategories = categories.filter((c) => {
+    if (!c.type || c.type === 'ANY') return true;
+    return c.type === form.type;
+  });
+
   const availableTags = allTags.filter((t) => !form.tags.includes(t.id));
   const selectedTagObjects = form.tags
     .map((tagId) => allTags.find((t) => t.id === tagId))
     .filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-4 pb-8">
+    <div className="mx-auto max-w-lg px-4 pt-4 pb-8 md:max-w-2xl lg:max-w-4xl">
       <div className="mb-4 flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -153,7 +188,11 @@ export function EditTransactionPage() {
                 variant={form.type === t ? 'default' : 'outline'}
                 size="sm"
                 className="flex-1"
-                onClick={() => setForm((f) => ({ ...f, type: t }))}
+                onClick={() => setForm((f) => {
+                  const cat = categories.find((c) => c.id === f.categoryId);
+                  const catStillValid = !cat || !cat.type || cat.type === 'ANY' || cat.type === t;
+                  return { ...f, type: t, categoryId: catStillValid ? f.categoryId : '' };
+                })}
               >
                 {t}
               </Button>
@@ -208,7 +247,7 @@ export function EditTransactionPage() {
                 className="flex h-10 w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm"
                 value={form.toAccountId}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, toAccountId: e.target.value }))
+                  setForm((f) => ({ ...f, toAccountId: e.target.value, toAmount: '' }))
                 }
               >
                 <option value="">Select account</option>
@@ -216,12 +255,41 @@ export function EditTransactionPage() {
                   .filter((a) => a.id !== form.accountId)
                   .map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.name}
+                      {a.name} {a.currency ? `(${a.currency})` : ''}
                     </option>
                   ))}
               </select>
             </div>
           )}
+
+          {/* To Amount — cross-currency transfers only */}
+          {(() => {
+            const fromAcc = accounts.find((a) => a.id === form.accountId);
+            const toAcc = accounts.find((a) => a.id === form.toAccountId);
+            if (
+              form.type !== 'TRANSFER' ||
+              !fromAcc || !toAcc ||
+              fromAcc.currency === toAcc.currency
+            ) return null;
+            return (
+              <div>
+                <label className="mb-1 block text-sm text-outline">
+                  To Amount ({toAcc.currency})
+                </label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={form.toAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, toAmount: e.target.value }))}
+                  step="0.01"
+                  min="0"
+                />
+                <p className="mt-1 text-xs text-outline">
+                  Amount received in {toAcc.currency} after conversion
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Category */}
           {form.type !== 'TRANSFER' && (
@@ -235,7 +303,7 @@ export function EditTransactionPage() {
                 }
               >
                 <option value="">No category</option>
-                {categories.map((c) => (
+                {filteredCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -335,6 +403,11 @@ export function EditTransactionPage() {
             <Button className="flex-1" onClick={handleSave}>
               {isEdit ? 'Save Changes' : 'Add Transaction'}
             </Button>
+            {isEdit && (
+              <Button variant="outline" size="icon" onClick={handleDuplicate} title="Duplicate">
+                <Copy className="h-4 w-4" />
+              </Button>
+            )}
             {isEdit && (
               <Button variant="destructive" size="icon" onClick={handleDelete}>
                 <Trash2 className="h-4 w-4" />
